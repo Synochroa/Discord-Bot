@@ -4,12 +4,22 @@ import sqlite3
 import time
 from collections import defaultdict
 user_messages = defaultdict(list)
+
 from dotenv import load_dotenv
+
 import os
 
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
+
+if TOKEN is None:
+    
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    TOKEN = os.getenv("TOKEN")
 
 from datetime import timedelta
 
