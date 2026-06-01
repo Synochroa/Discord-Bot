@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import sqlite3
 import time
 from collections import defaultdict
@@ -49,26 +50,40 @@ bot = commands.Bot(command_prefix="?s ", intents=intents)
 
 @bot.event
 async def on_ready():
+
+    GUILD_ID = 1509153631256187012
+    guild = discord.Object(id=GUILD_ID)
+    await bot.tree.sync(guild=guild)
+
     print(f"Logged in as {bot.user}")
 #----------------------------------------------------------------INTERACTIVE COMMANDS---------------------------------------------------------------------------
-@bot.command()
-async def slap(ctx, members: commands.Greedy[discord.Member], *, reason='no reason'):
-    slapped = ", ".join(x.name for x in members) 
-    embed = discord.Embed(
-    title="That's harsh...",
-    description=f"{slapped} was slapped for {reason}",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
+@bot.tree.command(
+    name="ping",
+    description="Check bot latency"
+)
+async def ping(interaction: discord.Interaction):
 
-@slap.error
-async def slap_error(ctx, error):
-    embed = discord.Embed(
-    title="Wrong usage!",
-    description=f"Usage: ?s slap @User (Reason)",
-    color=discord.Color.red()
+    await interaction.response.send_message(
+        f"Pong! {round(bot.latency * 1000)}ms"
     )
-    await ctx.send(embed=embed)
+
+@bot.tree.command(
+        name="slap",
+        description="Slap @User"
+)
+
+async def slap(
+    interaction: discord.Interaction,
+    member: discord.Member,
+    reason: str="no reason"
+):
+
+    embed = discord.Embed(
+        title="That's harsh...",
+        description=f"{member.mention} was slapped for {reason}",
+        color=discord.Color.red()
+    )
+    await interaction.response.send_message(embed=embed)
 
 @bot.command()
 async def kiss(ctx, members: commands.Greedy[discord.Member], *, reason='no reason'):
@@ -186,6 +201,7 @@ async def timeout(ctx, member: discord.Member, *, min: int):
     description=f"{member} was timedout.",
     color=discord.Color.red()
     )
+
     await ctx.send(embed=embed)
 
 @timeout.error
@@ -335,16 +351,7 @@ async def reasons(ctx, member: discord.Member):
 
 #---------------------------------------------------------------AUTO MODERATION------------------------------------------------------------------------
 
-Filtered = [
-    "porn",
-    "hentai",
-    "rule34",
-    "r34",
-    "nigger",
-    "nigga",
-    "nga",
-    "whore"
-]
+Filtered = []
 
 @bot.event
 async def on_message(message):
@@ -362,7 +369,7 @@ async def on_message(message):
         if current_time - t < 10
     ]
 
-    if len(user_messages[message.author.id]) >= 5:
+    if len(user_messages[message.author.id]) >= 7:
 
         embed = discord.Embed(
         title="Spam detected!",
@@ -410,6 +417,8 @@ async def on_message(message):
 
 
     await bot.process_commands(message)
+
+#--------------------------------------------------------------------
 
 
 bot.run(TOKEN)
