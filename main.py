@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import asyncio
 from discord import app_commands
 import sqlite3
 import time
@@ -36,156 +37,49 @@ CREATE TABLE IF NOT EXISTS warnings (
 
 conn.commit()
 
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-TOKEN = os.getenv("TOKEN")
-
 intents = discord.Intents.default()
 intents.message_content = True
+GUILD_ID = 1509153631256187012
 
-bot = commands.Bot(command_prefix="?s ", intents=intents)
+class MyBot(commands.Bot):
+
+    async def setup_hook(self):
+
+        guild = discord.Object(id=GUILD_ID)
+
+        bot.tree.copy_global_to(guild=guild)
+
+        synced = await self.tree.sync(guild=guild)
+
+        print(f"Synced {len(synced)} command(s)")
+        
+        for cmd in synced:
+            print(cmd.name)
+
+
+bot = MyBot(
+    command_prefix="?s ",
+    intents=intents
+)
 
 @bot.event
 async def on_ready():
+    
+    print(f"Logged in as {bot.user}") 
 
-    GUILD_ID = 1509153631256187012
-    guild = discord.Object(id=GUILD_ID)
-    await bot.tree.sync(guild=guild)
+#Cogs------------------------------------------------------------------------------
 
-    print(f"Logged in as {bot.user}")
-#----------------------------------------------------------------INTERACTIVE COMMANDS---------------------------------------------------------------------------
-@bot.tree.command(
-    name="ping",
-    description="Check bot latency"
-)
-async def ping(interaction: discord.Interaction):
+async def load_extensions():
 
-    await interaction.response.send_message(
-        f"Pong! {round(bot.latency * 1000)}ms"
+    await bot.load_extension(
+        "cogs.fun"
     )
 
-@bot.tree.command(
-        name="slap",
-        description="Slap @User"
-)
-
-async def slap(
-    interaction: discord.Interaction,
-    member: discord.Member,
-    reason: str="no reason"
-):
-
-    embed = discord.Embed(
-        title="That's harsh...",
-        description=f"{member.mention} was slapped for {reason}",
-        color=discord.Color.red()
+    await bot.load_extension(
+        "cogs.moderation"
     )
-    await interaction.response.send_message(embed=embed)
-
-@bot.command()
-async def kiss(ctx, members: commands.Greedy[discord.Member], *, reason='no reason'):
-    kissed = ", ".join(x.name for x in members)
-    embed = discord.Embed(
-    title="Someone's getting feisty",
-    description=f"{kissed} was kissed for {reason}",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-@kiss.error
-async def kiss_error(ctx, error):
-    embed = discord.Embed(
-    title="Wrong usage!",
-    description=f"Usage: ?s kiss @User (Reason)",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-@bot.command()
-async def marry(ctx, member: discord.Member):
-    embed = discord.Embed(
-    title="A newlywed just appeared~?",
-    description=f"Congraluations on {ctx.author.mention} and {member.mention} marriage~!",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-@marry.error
-async def kiss_error(ctx, error):
-    embed = discord.Embed(
-    title="Wrong usage!",
-    description=f"Usage: ?s marry @User",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-
 
 #----------------------------------------------------------------MODERATION COMMANDS--------------------------------------------------------------------------------
-
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-
-async def clear(ctx, amt: int):
-    await ctx.channel.purge(limit= amt + 1)
-
-    embed = discord.Embed(
-    title="Message clear",
-    description=f"{amt} messages purged!",
-    color=discord.Color.red()
-    )
-    confirmation = await ctx.send(embed=embed)
-
-    await confirmation.delete(delay=3)
-
-@bot.command()
-@commands.has_permissions(kick_members=True)
-
-async def kick(ctx, member: discord.Member, *, reason="no reasons provided"):
-    await member.kick(reason=reason)
-
-    embed = discord.Embed(
-    title="User kicked",
-    description=f"{member} was kicked.",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-@kick.error
-async def kick_error(ctx, error):
-
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("You dont have to permission to do that!")
-    
-    elif isinstance(error,commands.MissingRequiredArgument):
-        await ctx.send("Usage: !kick (User) (Reason)")
-    
-
-@bot.command()
-@commands.has_permissions(ban_members=True)
-
-async def ban(ctx, member: discord.Member, *, reason="no reason provided"):
-
-    await member.ban(reason=reason)
-
-    embed = discord.Embed(
-    title="User banned",
-    description=f"{member} was banned.",
-    color=discord.Color.red()
-    )
-    await ctx.send(embed=embed)
-
-@ban.error
-async def ban_error(ctx, error):
-
-    if isinstance(error,commands.MissingPermissions):
-        await ctx.send("You dont have to permission to do that!")
-    
-    elif isinstance(error,commands.MissingRequiredArgument):
-        await ctx.send("Usage: !ban (User) (Reason)")
 
 @bot.command()
 @commands.has_permissions(moderate_members=True)
@@ -371,6 +265,11 @@ async def on_message(message):
 
     if len(user_messages[message.author.id]) >= 7:
 
+        await message.author.timeout(
+            timedelta(minutes=5),
+            reason="spam detected"
+        )
+
         embed = discord.Embed(
         title="Spam detected!",
         description=f"{message.author.mention} please avoid spamming in chat!",
@@ -420,5 +319,12 @@ async def on_message(message):
 
 #--------------------------------------------------------------------
 
+async def main():
 
-bot.run(TOKEN)
+    async with bot:
+
+        await load_extensions()
+
+        await bot.start(TOKEN)
+
+asyncio.run(main())
