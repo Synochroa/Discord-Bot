@@ -4,7 +4,10 @@ import discord
 from datetime import timedelta
 import sqlite3
 
-conn = sqlite3.connect("warnings.db")
+conn = sqlite3.connect(
+    "warnings.db",
+    check_same_thread=False
+)
 cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS warnings (
@@ -201,7 +204,7 @@ class Moderation(commands.Cog):
 
     @app_commands.command(
             name="clearwarns",
-            description="clear @User's warnings",
+            description="clear all of @User's warnings",
         )
     @app_commands.checks.has_permissions(moderate_members=True)
 
@@ -219,8 +222,8 @@ class Moderation(commands.Cog):
             conn.commit()
 
             embed = discord.Embed(
-            title=f"You poured holy water on them!",
-            description=f"Cleared {member.mention} of all of their sins!",
+            title=f"Removed all of user's warnings",
+            description=f"Cleared {member.mention} of all of their warnings!",
             color=discord.Color.red()
             ) 
             await interaction.response.send_message(embed=embed)
@@ -262,7 +265,64 @@ class Moderation(commands.Cog):
             )
         await interaction.response.send_message(embed=embed)
 
+       
+
+    @app_commands.command(
+            name="unwarn",
+            description="clear @User's recent warning",
+        )
+    @app_commands.checks.has_permissions(moderate_members=True)
+    
+
+
+    async def unwarn(
+            self,
+            interaction: discord.Interaction,
+            member: discord.Member
+        ):    
+        
+        await interaction.response.defer()
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM warnings WHERE user_id = ?",
+            (member.id,)
+            )
+
+        count= cursor.fetchone()[0]
+
+        if count==0:
+
+            embed = discord.Embed(
+                title="User has no warnings",
+                description=f"{member.mention} does not have any warnings!",
+                color=discord.Colour.red()
+            )
+
+            await interaction.followup.send(embed=embed)
+            return
+
+        cursor.execute(
+            """
+            DELETE FROM warnings
+            WHERE rowid = (
+            SELECT rowid
+            FROM warnings
+            WHERE user_id = ?
+            ORDER BY rowid DESC
+            LIMIT 1
+            )
+            """,
+            (member.id,))
+
+        conn.commit()
+
+        embed = discord.Embed(
+            title=f"Removed the user's previous warning",
+            description=f"Removed {member.mention} previous warning!",
+            color=discord.Color.red()
+            ) 
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
-    await bot.add_cog(Moderation(bot)) 
+    await bot.add_cog(Moderation(bot))
     print("Moderation cog loaded!")

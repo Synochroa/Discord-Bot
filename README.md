@@ -1,7 +1,8 @@
 # Discord Bot
 
 Features:
-- Fun commands (Supports slash commands)
+- Supports slash commands
+- Fun commands
 - Moderation (Timeout/warn etc..)
 - Auto moderation
 - Anti spam
